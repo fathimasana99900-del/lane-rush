@@ -2,7 +2,7 @@
 # Lane Rush: builds a test APK (test ads) and a signed release APK (live ads)
 set -e
 mkdir -p www assets
-cp "$(ls *.html | head -1)" www/index.html
+cp "$(ls lane*.html index*.html 2>/dev/null | head -1)" www/index.html
 cp "$(ls *icon-only*.png | head -1)" assets/icon-only.png
 cp "$(ls *icon-foreground*.png | head -1)" assets/icon-foreground.png
 cp "$(ls *icon-background*.png | head -1)" assets/icon-background.png
