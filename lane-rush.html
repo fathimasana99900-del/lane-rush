@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="dark">
+<title>Lane Rush</title>
+<style>
+:root{--ink:#0b1a1f;--paper:#eefaf7;--coral:#ff6b57;--mint:#46f0c4;--sun:#ffc23d}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ink);color:var(--paper);font-family:"Avenir Next Rounded","Nunito","Segoe UI",system-ui,sans-serif;user-select:none;touch-action:none}
+#g{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hide{display:none!important}
+.native .slot,.native #banner{display:none!important}
+.hud{position:fixed;top:max(env(safe-area-inset-top),14px);left:12px;right:16px;display:flex;justify-content:space-between;align-items:flex-start}
+#pauseBtn{width:44px;height:44px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:var(--paper);font-size:18px;font-weight:800;cursor:pointer}
+#mid{text-align:center;pointer-events:none}
+#score{font-size:58px;font-weight:800;line-height:1;text-shadow:0 4px 0 rgba(0,0,0,.3)}
+#sub{font-size:14px;opacity:.75}
+#bar{height:5px;width:120px;margin:6px auto 0;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--mint)}
+.side{text-align:right;font-weight:700;min-width:44px;pointer-events:none;color:var(--mint)}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px 24px 76px;overflow:auto}
+.screen.dim{background:rgba(11,26,31,.9)}
+#home{background:linear-gradient(#0b1a1f,#12343a)}
+h1{font-size:54px;margin:0;letter-spacing:-1px}h2{margin:0 0 6px;font-size:28px}
+p{margin:0;line-height:1.4}.mut{opacity:.7}
+.chip{padding:6px 14px;border-radius:99px;background:rgba(70,240,196,.14);color:var(--mint);font-weight:700}
+#start{pointer-events:none;background:linear-gradient(transparent 20%,rgba(11,26,31,.75))}
+.pulse{margin-top:10px;font-weight:700;color:var(--mint);animation:p 1.2s infinite}
+@keyframes p{50%{opacity:.3}}
+.btn{width:min(300px,100%);padding:15px;border:0;border-radius:14px;font:inherit;font-size:18px;font-weight:800;background:var(--paper);color:var(--ink);cursor:pointer}
+.btn.go{background:var(--coral);color:#fff}.btn.gold{background:var(--sun)}.btn.ghost{background:rgba(255,255,255,.1);color:var(--paper)}
+.btn:active{transform:translateY(2px)}.btn:focus-visible,#pauseBtn:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
+#fs,#wStars{font-size:84px;font-weight:800;line-height:1}#wStars{color:var(--sun);font-size:64px}
+#grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:min(340px,100%)}
+.lv{aspect-ratio:1;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:var(--paper);font:inherit;font-weight:800;font-size:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.lv small{font-size:11px;color:var(--sun);letter-spacing:1px}.lv:disabled{opacity:.3}
+#list{width:min(320px,100%);text-align:left;line-height:2}
+#list div{display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.12)}
+.slot{width:320px;max-width:100%;height:100px;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:.5;border:1px dashed currentColor}
+#banner{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:320px;height:50px;max-width:100%;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:.5;border:1px dashed currentColor;margin-bottom:env(safe-area-inset-bottom);z-index:5}
+.adbox{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center}
+.adcard{display:flex;flex-direction:column;align-items:center;gap:14px;width:min(300px,86%);text-align:center}
+.adcard b{font-size:64px}.adcard button{width:100%;padding:14px;border:0;border-radius:12px;font:inherit;font-weight:700;cursor:pointer}
+.adcard button:disabled{opacity:.35}.adskip{background:transparent;color:var(--paper);opacity:.7}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+@media (max-height:640px){h1{font-size:40px}.slot{height:60px}#fs{font-size:64px}}
+</style>
+</head>
+<body>
+<canvas id="g"></canvas>
+
+<header class="hud hide" id="hud">
+  <button id="pauseBtn" aria-label="Pause">II</button>
+  <div id="mid"><div id="score">0</div><div id="sub"></div><div id="bar"><i></i></div></div>
+  <div class="side" id="gems">0</div>
+</header>
+
+<section id="home" class="screen">
+  <h1>Lane Rush</h1>
+  <p class="chip" id="wallet"></p>
+  <p class="mut">Collect gems while you run. Spend them to continue after a crash.</p>
+  <button class="btn go" id="bPlay">Play</button>
+  <button class="btn" id="bLevels">Levels</button>
+  <button class="btn" id="bEndless">Endless mode</button>
+  <button class="btn ghost" id="bScores">High scores</button>
+  <button class="btn gold" id="bBonus">Watch ad: +25 gems</button>
+  <div class="slot">Ad slot 320×100</div>
+</section>
+
+<section id="levels" class="screen hide">
+  <h2>Levels</h2><p class="mut" id="lvInfo"></p>
+  <div id="grid"></div>
+  <button class="btn ghost" data-home>Back</button>
+</section>
+
+<section id="scores" class="screen hide">
+  <h2>High scores</h2><p class="chip" id="starTotal"></p>
+  <div id="list"></div>
+  <p class="mut">Endless mode, this device</p>
+  <button class="btn ghost" data-home>Back</button>
+  <div class="slot">Ad slot 320×100</div>
+</section>
+
+<section id="start" class="screen hide"><h1 id="stTitle"></h1><p id="stSub"></p><span class="pulse">Tap to start</span></section>
+
+<section id="pause" class="screen dim hide"><h2>Paused</h2>
+  <button class="btn go" id="bResume">Resume</button><button class="btn ghost" data-home>Quit to home</button></section>
+
+<section id="over" class="screen dim hide">
+  <p class="mut" id="fl">Score</p><div id="fs">0</div><p id="fb" class="chip"></p><p class="mut" id="bal"></p>
+  <button id="cont" class="btn gold" hidden>Continue (watch ad)</button>
+  <button id="contG" class="btn" hidden>Continue (15 gems)</button>
+  <button id="again" class="btn go">Try again</button>
+  <button class="btn ghost" data-home>Home</button>
+  <div class="slot">Ad slot 320×100</div>
+</section>
+
+<section id="win" class="screen dim hide">
+  <h2>Level complete</h2><div id="wStars"></div><p class="chip" id="wGems"></p>
+  <button id="dbl" class="btn gold">Double gems (watch ad)</button>
+  <button id="nextBtn" class="btn go">Next level</button>
+  <button class="btn ghost" id="bBackLv">Levels</button>
+  <div class="slot">Ad slot 320×100</div>
+</section>
+
+<!-- BANNER AD SLOT: replace with your network's 320x50 unit. The 320x100 slots above are extra placements. -->
+<div id="banner">Banner ad 320×50</div>
+
+<script>
+/* Ads: test mode. Swap the bodies of rewarded() and interstitial() for your SDK (Poki, CrazyGames, AdSense H5). */
+const Ads=(()=>{
+const CAP=window.Capacitor,NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlatform()),AM=NATIVE?CAP.Plugins.AdMob:null;
+const TEST=true;   // TRUE = Google test ads (safe). Set to false only for the release build.
+const ID={banner:'ca-app-pub-5059428712375364/4008679067',inter:'ca-app-pub-5059428712375364/9171349718',reward:'ca-app-pub-5059428712375364/1638802061'};
+let games=0,lastAt=0;const EVERY=3,GAP=45000;
+const mock=(t,s,r)=>new Promise(done=>{const el=document.createElement('div');el.className='adbox';
+el.innerHTML='<div class="adcard"><p>'+t+'</p><b>'+s+'</b><button class="ok" disabled>'+(r?'Claim reward':'Continue')+'</button>'+(r?'<button class="adskip">No thanks</button>':'')+'</div>';
+document.body.appendChild(el);const n=el.querySelector('b'),ok=el.querySelector('.ok'),sk=el.querySelector('.adskip');
+const fin=v=>{clearInterval(iv);el.remove();done(v)};const iv=setInterval(()=>{s--;n.textContent=Math.max(s,0);if(s<=0)ok.disabled=false},1000);
+ok.onclick=()=>fin(true);if(sk)sk.onclick=()=>fin(false)});
+
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+if(NATIVE){document.documentElement.classList.add('native');
+  AM.initialize({initializeForTesting:TEST}).then(()=>AM.showBanner({adId:ID.banner,adSize:'ADAPTIVE_BANNER',position:'BOTTOM_CENTER',margin:0,isTesting:TEST})).catch(()=>{})}
+return{
+rewarded:async()=>{if(!NATIVE)return mock('Rewarded ad (test)',15,true);
+  try{let ok=false;const h=await AM.addListener('onRewardedVideoAdReward',()=>{ok=true});
+    await AM.prepareRewardVideoAd({adId:ID.reward,isTesting:TEST});await AM.showRewardVideoAd();await wait(400);h.remove();return ok}catch(e){return false}},
+interstitial:async()=>{if(games<EVERY||Date.now()-lastAt<GAP)return;games=0;lastAt=Date.now();
+  if(!NATIVE)return mock('Ad (test)',8,false);
+  try{await AM.prepareInterstitial({adId:ID.inter,isTesting:TEST});await AM.showInterstitial()}catch(e){}},
+onGameEnd:()=>{games++}}})();
+
+(()=>{'use strict';
+const cv=document.getElementById('g'),cx=cv.getContext('2d'),$=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const LV=[200,300,400,500,650,800,1000,1200,1500,2000];   // level goals in meters
+const CONT_COST=15, CONT_STEP=10, GEMS_FOR_3=10;
+let gc=0, au=false;               // gem continues used this run, ad continue used
+const cost=()=>CONT_COST+CONT_STEP*gc;
+let scores=store.get('lane.scores',[]), prog=store.get('lane.prog',{u:1,s:[]}), wallet=store.get('lane.wallet',0);
+const save=()=>{store.set('lane.scores',scores);store.set('lane.prog',prog);store.set('lane.wallet',wallet)};
+const P=m=>m==='e'?{base:300,ramp:.8,cap:720,gap0:250,gapMin:150,gapRamp:.12,blk:.85}
+  :{base:280+m*28,ramp:.45,cap:540+m*20,gap0:260-m*6,gapMin:150,gapRamp:.1,blk:Math.min(.95,.8+m*.015)};
+
+let W,H,LW,X0,PY;
+function resize(){const d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0);LW=Math.min(W,420)/3;X0=(W-LW*3)/2;PY=H*.72}
+addEventListener('resize',resize);resize();
+const lx=l=>X0+LW*(l+.5);
+let st='menu',mode='e',lane=1,px=0,objs=[],parts=[],dist=0,since=0,open=1,gems=0,banked=0,score=0,inv=0,shake=0,used=false,last=0,ac,runEntry=null;
+
+function beep(f,d,ty,v){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime;
+o.type=ty||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||.12,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(t+d)}catch(e){}}
+const show=id=>{document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('hide',s.id!==id))};
+const best=()=>scores.length?scores[0].s:0;
+function burst(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*300,vy:(Math.random()-.5)*300,life:.5,c,r:4})}
+function bank(){wallet+=gems-banked;banked=gems;save()}
+
+/* ---------- menus ---------- */
+function home(){st='menu';$('hud').classList.add('hide');objs=[];parts=[];
+  const n=Math.min(prog.u,LV.length);$('bPlay').textContent='Play level '+n;
+  $('wallet').textContent='◆ '+wallet+' gems';show('home')}
+function levels(){const g=$('grid');g.innerHTML='';
+  LV.forEach((m,i)=>{const b=document.createElement('button');b.className='lv';const s=prog.s[i]||0;
+    b.disabled=i>=prog.u;b.innerHTML=(i<prog.u?(i+1)+'<small>'+'★'.repeat(s)+'☆'.repeat(3-s)+'</small>':'🔒');
+    b.onclick=()=>run(i);g.appendChild(b)});
+  $('lvInfo').textContent='Reach the goal distance. Use no continue and grab '+GEMS_FOR_3+' gems for 3 stars.';show('levels')}
+function scoresScreen(){const t=prog.s.reduce((a,b)=>a+b,0);$('starTotal').textContent='Stars '+t+' / '+LV.length*3;
+  $('list').innerHTML=scores.length?scores.map((e,i)=>'<div><span>'+(i+1)+'. '+e.s+'</span><span class="mut">'+e.d+'</span></div>').join(''):'<p class="mut">No scores yet. Play endless mode.</p>';show('scores')}
+document.querySelectorAll('[data-home]').forEach(b=>b.onclick=home);
+$('bPlay').onclick=()=>run(Math.min(prog.u,LV.length)-1);
+$('bLevels').onclick=levels;$('bEndless').onclick=()=>run('e');$('bScores').onclick=scoresScreen;
+$('bBonus').onclick=async()=>{if(await Ads.rewarded()){wallet+=25;save();$('wallet').textContent='◆ '+wallet+' gems'}};
+
+/* ---------- run ---------- */
+function reset(){objs=[];parts=[];dist=0;since=0;open=1;gems=0;banked=0;score=0;inv=0;lane=1;px=lx(1);used=false;gc=0;au=false;runEntry=null;hud()}
+function run(m){mode=m;reset();st='ready';$('hud').classList.remove('hide');
+  $('stTitle').textContent=m==='e'?'Endless':'Level '+(m+1);
+  $('stSub').textContent=m==='e'?'Survive as long as you can.':'Reach '+LV[m]+' m. Tap left or right to change lane.';show('start')}
+function hud(){const m=Math.floor(dist/40);
+  $('score').textContent=mode==='e'?score:m;
+  $('sub').textContent=mode==='e'?'Best '+Math.max(best(),score):'of '+LV[mode]+' m';
+  $('bar').style.visibility=mode==='e'?'hidden':'visible';
+  if(mode!=='e')$('bar').firstChild.style.width=Math.min(100,m/LV[mode]*100)+'%';
+  $('gems').textContent='◆ '+gems}
+function row(b){open=Math.max(0,Math.min(2,open+Math.floor(Math.random()*3)-1));
+  for(let l=0;l<3;l++)if(l!==open&&Math.random()<b)objs.push({l,y:-50,t:'b'});
+  if(Math.random()<.5)objs.push({l:open,y:-50,t:'g'})}
+function move(d){if(st!=='play')return;const n=Math.max(0,Math.min(2,lane+d));if(n!==lane){lane=n;beep(520,.04,'triangle',.06)}}
+function tap(x){if(st==='ready'){st='play';show(null);return}move(x<W/2?-1:1)}
+cv.addEventListener('pointerdown',e=>{e.preventDefault();tap(e.clientX)});
+addEventListener('keydown',e=>{if(e.code==='ArrowLeft'||e.code==='KeyA')tap(0);else if(e.code==='ArrowRight'||e.code==='KeyD')tap(W);else if(e.code==='Space'&&st==='ready')tap(0)});
+$('pauseBtn').onclick=()=>{if(st==='play'){st='pause';show('pause')}};
+$('bResume').onclick=()=>{st='play';show(null)};
+
+function die(){st='dead';shake=14;beep(110,.45,'sawtooth',.12);burst(px,PY,'#ff6b57',24);bank();
+  if(mode==='e'&&score>0){if(!runEntry){runEntry={s:0,d:new Date().toLocaleDateString()};scores.push(runEntry)}
+    runEntry.s=score;scores.sort((a,b)=>b.s-a.s);scores=scores.slice(0,10);save()}
+  setTimeout(()=>{const top=mode==='e'&&scores.length&&scores[0].s===score&&score>0;
+    $('fl').textContent=mode==='e'?'Score':'Level '+(mode+1)+' distance (m)';
+    $('fs').textContent=mode==='e'?score:Math.floor(dist/40);
+    $('fb').textContent=mode==='e'?(top?'New best!':'Best '+best()):'Goal '+LV[mode]+' m';
+    $('cont').hidden=au||dist/40<20;$('contG').hidden=wallet<cost()||dist/40<20;$('contG').textContent='Continue ('+cost()+' gems)';$('bal').textContent='You have '+wallet+' gems';
+    show('over');Ads.onGameEnd()},650)}
+function resume(){used=true;objs=objs.filter(o=>o.y<PY-320||o.y<0);inv=1.6;st='play';show(null)}
+$('cont').onclick=async()=>{if(await Ads.rewarded()){au=true;resume()}};
+$('contG').onclick=()=>{const c=cost();if(wallet>=c){wallet-=c;gc++;save();resume()}};
+$('again').onclick=async()=>{await Ads.interstitial();run(mode)};
+
+function win(){st='won';bank();const stars=1+(used?0:1)+(gems>=GEMS_FOR_3?1:0);
+  if(stars>(prog.s[mode]||0))prog.s[mode]=stars;prog.u=Math.max(prog.u,Math.min(mode+2,LV.length));save();
+  beep(660,.15,'triangle');setTimeout(()=>beep(880,.25,'triangle'),150);
+  setTimeout(()=>{$('wStars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);$('wGems').textContent='+'+gems+' gems collected';
+    $('dbl').hidden=gems<1;$('nextBtn').hidden=mode>=LV.length-1;show('win');Ads.onGameEnd()},450)}
+$('dbl').onclick=async()=>{if(await Ads.rewarded()){wallet+=gems;save();$('dbl').hidden=true;$('wGems').textContent='+'+gems*2+' gems (doubled)'}};
+$('nextBtn').onclick=async()=>{await Ads.interstitial();run(mode+1)};
+$('bBackLv').onclick=levels;
+
+/* ---------- loop ---------- */
+function update(dt){
+  if(st==='play'){const p=P(mode),m=dist/40,v=Math.min(p.base+m*p.ramp,p.cap);
+    dist+=v*dt;since+=v*dt;if(since>=Math.max(p.gapMin,p.gap0-m*p.gapRamp)){since=0;row(p.blk)}
+    objs.forEach(o=>o.y+=v*dt);inv=Math.max(0,inv-dt);
+    for(const o of objs){if(o.l===lane&&Math.abs(o.y-PY)<38){
+      if(o.t==='g'){o.dead=true;gems++;beep(780+Math.min(gems,10)*30,.08,'triangle');burst(lx(o.l),o.y,'#46f0c4',10)}
+      else if(!inv){objs=objs.filter(q=>!q.dead);die();break}}}
+    objs=objs.filter(o=>!o.dead&&o.y<H+60);
+    score=Math.floor(dist/40)+gems*5;hud();
+    parts.push({x:px,y:PY+16,vx:0,vy:80,life:.35,c:'#ff6b57',r:5});
+    if(mode!=='e'&&dist/40>=LV[mode])win()}
+  else if(st==='menu')dist+=120*dt;
+  px+=(lx(lane)-px)*Math.min(1,dt*18);
+  parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt});parts=parts.filter(p=>p.life>0);shake*=.9}
+
+function draw(){
+  const g=cx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0b1a1f');g.addColorStop(1,'#12343a');cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  cx.save();if(shake>.5)cx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  for(let l=0;l<3;l++){cx.fillStyle=l%2?'rgba(255,255,255,.035)':'rgba(255,255,255,.07)';cx.fillRect(X0+l*LW,0,LW,H)}
+  cx.strokeStyle='rgba(238,250,247,.25)';cx.lineWidth=3;cx.setLineDash([22,18]);cx.lineDashOffset=-(dist%40);
+  for(let l=0;l<=3;l++){cx.beginPath();cx.moveTo(X0+l*LW,0);cx.lineTo(X0+l*LW,H);cx.stroke()}cx.setLineDash([]);
+  for(const o of objs){const x=lx(o.l);
+    if(o.t==='b'){cx.fillStyle='#ff5a4f';cx.fillRect(x-LW/2+10,o.y-22,LW-20,44);cx.fillStyle='rgba(255,194,61,.9)';
+      for(let s=0;s<4;s++)cx.fillRect(x-LW/2+10+s*(LW-20)/4+4,o.y-22,(LW-20)/8,8);cx.fillStyle='rgba(0,0,0,.2)';cx.fillRect(x-LW/2+10,o.y+12,LW-20,10)}
+    else{cx.fillStyle='#46f0c4';cx.beginPath();cx.moveTo(x,o.y-16);cx.lineTo(x+13,o.y);cx.lineTo(x,o.y+16);cx.lineTo(x-13,o.y);cx.closePath();cx.fill()}}
+  parts.forEach(p=>{cx.globalAlpha=Math.max(p.life/.5,0);cx.fillStyle=p.c;cx.fillRect(p.x-p.r/2,p.y-p.r/2,p.r,p.r)});cx.globalAlpha=1;
+  if(st!=='dead'&&!(inv&&Math.floor(inv*10)%2)){cx.fillStyle='#ff6b57';cx.beginPath();cx.arc(px,PY,18,0,7);cx.fill();cx.strokeStyle='#eefaf7';cx.lineWidth=4;cx.stroke()}
+  cx.restore()}
+
+function frame(t){const dt=Math.min((t-last)/1000||0,.05);last=t;update(dt);draw();requestAnimationFrame(frame)}
+reset();home();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
